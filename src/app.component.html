@@ -1,0 +1,23 @@
+
+<main class="h-screen w-full bg-stone-100 overflow-hidden font-sans text-stone-800">
+  @if (currentView() === 'home') {
+    <app-home 
+      (startGame)="toGame()" 
+      (viewStats)="toStats()">
+    </app-home>
+  }
+
+  @if (currentView() === 'game') {
+    <app-game 
+      [stage]="currentStage()"
+      (requestRestart)="handleRestartGame()"
+      (requestStats)="toStats()">
+    </app-game>
+  }
+
+  @if (currentView() === 'stats') {
+    <app-stats 
+      (goHome)="toHome()">
+    </app-stats>
+  }
+</main>
