@@ -10,7 +10,7 @@ type SortKey = 'presented' | 'correct' | 'wrong';
   selector: 'app-stats',
   imports: [CommonModule, DatePipe],
   template: `
-    <div class="p-6 max-w-2xl mx-auto h-full overflow-y-auto">
+    <div class="p-6 max-w-2xl mx-auto h-full overflow-y-auto bg-stone-100">
       <div class="flex items-center justify-between mb-6">
         <h2 class="text-3xl font-bold text-stone-800 serif">나의 기록</h2>
         <button (click)="resetData()" class="text-stone-400 hover:text-red-500 transition-colors p-2" title="기록 초기화">
@@ -26,7 +26,7 @@ type SortKey = 'presented' | 'correct' | 'wrong';
           <p class="text-3xl font-bold text-amber-600">{{ totalGames() }}</p>
         </div>
         <div class="bg-white p-4 rounded-lg shadow border border-stone-200 text-center">
-          <p class="text-stone-500 text-sm">평균 점수</p>
+          <p class="text-stone-500 text-sm">평균 점수(Stage)</p>
           <p class="text-2xl font-bold text-amber-600">{{ averageScoreDisplay() }}</p>
         </div>
       </div>
@@ -38,36 +38,38 @@ type SortKey = 'presented' | 'correct' | 'wrong';
             데이터가 없습니다.
            </div>
         } @else {
-          <div class="bg-white rounded-lg shadow overflow-hidden border border-stone-200 overflow-x-auto">
-            <table class="w-full text-left text-sm">
-              <thead class="bg-stone-100 text-stone-600 uppercase font-bold">
-                <tr>
-                  <th class="p-3">사자성어</th>
-                  <th class="p-3 text-center cursor-pointer hover:text-amber-600" (click)="setSort('presented')">
-                    제출 ▼
-                  </th>
-                  <th class="p-3 text-center cursor-pointer hover:text-amber-600" (click)="setSort('correct')">
-                    정답 ▼
-                  </th>
-                  <th class="p-3 text-center cursor-pointer hover:text-amber-600" (click)="setSort('wrong')">
-                    오답 ▼
-                  </th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-stone-100">
-                @for (stat of sortedIdiomStats(); track stat.id) {
-                  <tr class="hover:bg-stone-50">
-                    <td class="p-3 font-medium text-stone-800">
-                      {{ getWord(stat.id) }}
-                      <span class="block text-xs text-stone-400 font-normal">{{ getMeaning(stat.id) }}</span>
-                    </td>
-                    <td class="p-3 text-center">{{ stat.presented }}</td>
-                    <td class="p-3 text-center text-green-600 font-bold">{{ stat.correct }}</td>
-                    <td class="p-3 text-center text-red-500">{{ stat.wrong }}</td>
+          <div class="bg-white rounded-lg shadow border border-stone-200 flex flex-col max-h-96">
+            <div class="overflow-y-auto">
+              <table class="w-full text-left text-sm relative">
+                <thead class="bg-stone-100 text-stone-600 uppercase font-bold sticky top-0 z-10 shadow-sm">
+                  <tr>
+                    <th class="p-3 bg-stone-100">사자성어</th>
+                    <th class="p-3 text-center cursor-pointer hover:text-amber-600 bg-stone-100" (click)="setSort('presented')">
+                      제출 ▼
+                    </th>
+                    <th class="p-3 text-center cursor-pointer hover:text-amber-600 bg-stone-100" (click)="setSort('correct')">
+                      정답 ▼
+                    </th>
+                    <th class="p-3 text-center cursor-pointer hover:text-amber-600 bg-stone-100" (click)="setSort('wrong')">
+                      오답 ▼
+                    </th>
                   </tr>
-                }
-              </tbody>
-            </table>
+                </thead>
+                <tbody class="divide-y divide-stone-100">
+                  @for (stat of sortedIdiomStats(); track stat.id) {
+                    <tr class="hover:bg-stone-50">
+                      <td class="p-3 font-medium text-stone-800">
+                        {{ getWord(stat.id) }}
+                        <span class="block text-xs text-stone-400 font-normal">{{ getMeaning(stat.id) }}</span>
+                      </td>
+                      <td class="p-3 text-center">{{ stat.presented }}</td>
+                      <td class="p-3 text-center text-green-600 font-bold">{{ stat.correct }}</td>
+                      <td class="p-3 text-center text-red-500">{{ stat.wrong }}</td>
+                    </tr>
+                  }
+                </tbody>
+              </table>
+            </div>
           </div>
         }
       </div>
@@ -84,7 +86,7 @@ type SortKey = 'presented' | 'correct' | 'wrong';
               <tr>
                 <th class="p-3">날짜</th>
                 <th class="p-3">스테이지</th>
-                <th class="p-3 text-right">점수</th>
+                <th class="p-3 text-right">점수 (누적)</th>
               </tr>
             </thead>
             <tbody class="divide-y divide-stone-100">
@@ -92,11 +94,9 @@ type SortKey = 'presented' | 'correct' | 'wrong';
                 <tr class="hover:bg-stone-50">
                   <td class="p-3 text-sm text-stone-600">{{ record.timestamp | date:'MM.dd HH:mm' }}</td>
                   <td class="p-3 font-medium text-stone-800">Stage {{ record.stage }}</td>
-                  <td class="p-3 text-right font-bold text-amber-600">
-                     {{ record.totalScore }}
-                     @if (record.totalQuestions) {
-                       <span class="text-xs text-stone-400 font-normal">({{record.correctCount}}/{{record.totalQuestions}})</span>
-                     }
+                  <td class="p-3 text-right">
+                     <span class="font-bold text-amber-600 block">{{ record.stageScore ?? 0 }}점</span>
+                     <span class="text-xs text-stone-400">누적: {{ record.totalScore }}점</span>
                   </td>
                 </tr>
               }
@@ -106,8 +106,8 @@ type SortKey = 'presented' | 'correct' | 'wrong';
       }
 
       <div class="mt-8 text-center">
-        <button (click)="goHome.emit()" class="px-8 py-3 bg-stone-700 text-white rounded-full shadow hover:bg-stone-600 transition font-bold">
-          메인으로 돌아가기
+        <button (click)="goBack.emit()" class="px-8 py-3 bg-stone-700 text-white rounded-full shadow hover:bg-stone-600 transition font-bold">
+          이전으로 돌아가기
         </button>
       </div>
     </div>
@@ -116,7 +116,7 @@ type SortKey = 'presented' | 'correct' | 'wrong';
 export class StatsComponent {
   storage = inject(StorageService);
   dataService = inject(DataService);
-  goHome = output<void>();
+  goBack = output<void>();
 
   records = signal<GameRecord[]>([]);
   idiomStats = signal<IdiomStat[]>([]);
@@ -156,8 +156,10 @@ export class StatsComponent {
       
       this.totalGames.set(sorted.length);
       if (sorted.length > 0) {
-        const totalScore = sorted.reduce((acc, cur) => acc + cur.totalScore, 0);
-        const avgScore = Math.round(totalScore / sorted.length);
+        // Calculate average "Stage Score", not total cumulative
+        // If old records don't have stageScore, use totalScore as fallback (backward compatibility)
+        const sumStageScores = sorted.reduce((acc, cur) => acc + (cur.stageScore ?? cur.totalScore), 0);
+        const avgScore = Math.round(sumStageScores / sorted.length);
 
         // Calculate average Correct / Total
         let totalCorrect = 0;

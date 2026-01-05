@@ -138,8 +138,11 @@ import { StorageService, SavedGameState, GameResultDetail } from '../services/st
           </div>
 
           <div class="bg-stone-50 p-8 rounded-full w-48 h-48 flex flex-col items-center justify-center border-4 border-amber-400 shadow-inner mb-8">
-            <span class="text-stone-400 font-bold uppercase text-sm">Total Score</span>
-            <span class="text-5xl font-bold text-stone-800 mt-1">{{ totalScore() }}</span>
+            <span class="text-stone-400 font-bold uppercase text-xs mb-1">Cumulative Score</span>
+            <span class="text-5xl font-bold text-stone-800">{{ totalScore() }}</span>
+            <span class="text-sm text-stone-500 mt-2 font-mono">
+              (Stage Score: +{{ totalScore() - startScore() }})
+            </span>
           </div>
 
           <div class="flex flex-col gap-3 w-full max-w-xs">
@@ -190,14 +193,18 @@ import { StorageService, SavedGameState, GameResultDetail } from '../services/st
 export class GameComponent {
   stage = input.required<number>();
   initialState = input<SavedGameState | null>(null);
+  startScore = input<number>(0); // Accumulated score from previous stages
   
   // Outputs
   requestRestart = output<void>();
   requestStats = output<void>();
-  requestNextStage = output<void>();
+  requestNextStage = output<number>(); // Emits current total score to carry over
   
   private dataService = inject(DataService);
   private storageService = inject(StorageService);
+
+  // Guard to prevent unintended reloading
+  private loadedStage = -1;
 
   // Game State Signals
   questions = signal<Idiom[]>([]);
@@ -233,23 +240,23 @@ export class GameComponent {
        }
     });
 
+    // Consolidated effect for loading/restoring game state
     effect(() => {
-      // If we have an initial state provided by resume, use it.
-      // Otherwise load fresh data for the stage.
-      const saved = this.initialState();
-      // We only use the initial state if the stage matches what we requested
-      if (saved && saved.stage === this.stage() && this.questions().length === 0) {
-        this.restoreGame(saved);
-      } else if (this.questions().length === 0) {
-        // Only load fresh if not already loaded (prevents infinite loop with effect)
-        this.loadStageData(this.stage());
+      const reqStage = this.stage();
+      const state = this.initialState();
+      
+      // Prevent re-loading if we are already playing this stage.
+      if (this.loadedStage !== reqStage) {
+        this.loadedStage = reqStage;
+        
+        // If we have a saved state matching the requested stage, restore it.
+        if (state && state.stage === reqStage) {
+          this.restoreGame(state);
+        } else {
+          // Otherwise, load fresh data for the requested stage.
+          this.loadStageData(reqStage);
+        }
       }
-    });
-
-    // Watch for stage changes specifically to reload if component stays alive
-    effect(() => {
-       const stg = this.stage();
-       // If logic to check if stage changed significantly
     }, { allowSignalWrites: true });
   }
 
@@ -257,7 +264,10 @@ export class GameComponent {
     const qList = this.dataService.getQuestionsForStage(stageLvl);
     this.questions.set(qList);
     this.currentIndex.set(0);
-    this.totalScore.set(0);
+    
+    // Initialize score with accumulated score from previous stages
+    this.totalScore.set(this.startScore());
+    
     this.gameResults.set([]);
     this.gameEnded.set(false);
     this.resetQuestionState();
@@ -268,9 +278,7 @@ export class GameComponent {
     const qList = this.dataService.getQuestionsForStage(saved.stage);
     this.questions.set(qList);
     this.currentIndex.set(saved.currentIndex);
-    this.totalScore.set(saved.totalScore);
-    // Note: We don't have detailed question history in simple resume saveState
-    // So we just start empty for results tracking in this session.
+    this.totalScore.set(saved.totalScore); // Resume from saved accumulated score
     this.gameResults.set([]); 
     this.gameEnded.set(false);
     this.resetQuestionState();
@@ -366,12 +374,6 @@ export class GameComponent {
       
       this.shakeEffect.set(true);
       setTimeout(() => this.shakeEffect.set(false), 400);
-      
-      // Track wrong result if it's the first time we see this question wrong?
-      // Actually, we usually track 'Result' as final outcome. 
-      // If they eventually get it right, it counts as correct but low score.
-      // But for stats purposes, let's say: if they made a mistake, we might want to know.
-      // Simplification: We record the result when moving to next question.
     }
   }
 
@@ -393,7 +395,7 @@ export class GameComponent {
 
   nextQuestion() {
     const idx = this.currentIndex();
-    // Dynamic check for total questions (previously hardcoded to 9)
+    // Dynamic check for total questions
     if (idx < this.questions().length - 1) {
       this.isTransitioning.set(true); // Fade out old question
       
@@ -419,11 +421,14 @@ export class GameComponent {
     
     // Calculate stats
     const correctCount = this.gameResults().filter(r => r.isCorrect).length;
-    const totalQ = this.questions().length; // Should be 5
+    const totalQ = this.questions().length; 
+    const currentTotal = this.totalScore();
+    const stageScore = currentTotal - this.startScore(); // Points earned ONLY in this stage
 
     this.storageService.saveGameResult(
         this.stage(), 
-        this.totalScore(), 
+        currentTotal, // Cumulative
+        stageScore,   // Delta
         correctCount, 
         totalQ,
         this.gameResults()
@@ -433,10 +438,12 @@ export class GameComponent {
   }
 
   nextStageAction() {
-    this.requestNextStage.emit();
+    // Pass the current total score to the next stage
+    this.requestNextStage.emit(this.totalScore());
   }
 
   retryStage() {
+    // Retry means starting this stage over, so we go back to startScore
     this.loadStageData(this.stage());
   }
 

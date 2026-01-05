@@ -4,7 +4,8 @@ import { Injectable, signal } from '@angular/core';
 export interface GameRecord {
   timestamp: number;
   stage: number;
-  totalScore: number;
+  stageScore: number; // Score earned in this specific stage
+  totalScore: number; // Cumulative score up to this stage
   correctCount: number;
   totalQuestions: number;
 }
@@ -46,8 +47,8 @@ export class StorageService {
   }
 
   private initDB() {
-    // Increased version for schema change to v3
-    const request = indexedDB.open(this.dbName, 3); 
+    // Increased version to 4 for stageScore addition
+    const request = indexedDB.open(this.dbName, 4); 
 
     request.onerror = (event) => {
       console.error('Database error:', event);
@@ -66,7 +67,7 @@ export class StorageService {
         db.createObjectStore(this.ongoingStore, { keyPath: 'id' });
       }
 
-      // Store for Individual Idiom Statistics (New in v3)
+      // Store for Individual Idiom Statistics
       if (!db.objectStoreNames.contains(this.idiomStatsStore)) {
         db.createObjectStore(this.idiomStatsStore, { keyPath: 'id' });
       }
@@ -79,7 +80,7 @@ export class StorageService {
 
   // --- Statistics Methods ---
 
-  saveGameResult(stage: number, score: number, correctCount: number, totalQuestions: number, results: GameResultDetail[]) {
+  saveGameResult(stage: number, totalScore: number, stageScore: number, correctCount: number, totalQuestions: number, results: GameResultDetail[]) {
     if (!this.db) return;
     
     const transaction = this.db.transaction([this.statsStore, this.idiomStatsStore], 'readwrite');
@@ -89,7 +90,8 @@ export class StorageService {
     const record: GameRecord = {
       timestamp: Date.now(),
       stage,
-      totalScore: score,
+      stageScore,
+      totalScore,
       correctCount,
       totalQuestions
     };

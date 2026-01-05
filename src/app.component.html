@@ -3,6 +3,7 @@
   @if (currentView() === 'home') {
     <app-home 
       (startGame)="toGame()" 
+      (resumeGame)="resumeGame()"
       (viewStats)="toStats()">
     </app-home>
   }
@@ -10,7 +11,10 @@
   @if (currentView() === 'game') {
     <app-game 
       [stage]="currentStage()"
+      [startScore]="runningTotal()"
+      [initialState]="resumeState()"
       (requestRestart)="handleRestartGame()"
+      (requestNextStage)="handleNextStage($event)"
       (requestStats)="toStats()">
     </app-game>
   }
